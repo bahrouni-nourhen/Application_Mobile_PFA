@@ -1,9 +1,16 @@
+// AJOUTE CES LIGNES TOUT EN HAUT :
+plugins {
+    id("com.google.gms.google-services") version "4.4.2" apply false
+}
+
+// LE RESTE DE TON FICHIER RESTE IDENTIQUE :
 allprojects {
     repositories {
         google()
         mavenCentral()
     }
 }
+// ... (ne touche pas à ce qui suit)
 
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory

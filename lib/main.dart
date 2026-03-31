@@ -2,17 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // On essaie de lancer Firebase, mais on ignore l'erreur sur Windows
   try {
     await Firebase.initializeApp();
+    print("Firebase initialisé avec succès !");
   } catch (e) {
-    print("Firebase ignoré sur Windows : $e");
+    print('❌ ERREUR FIREBASE DÉTAILLÉE : $e'); // Ceci va nous aider
   }
-  
   runApp(const SeniorCareApp());
 }
 
@@ -157,10 +155,80 @@ class RoleSelectionScreen extends StatelessWidget {
   }
 }
 
-// --- SCREEN 2: LOGIN ---
-class LoginScreen extends StatelessWidget {
+
+
+// --- SCREEN 2: LOGIN (AVEC FIREBASE) ---
+class LoginScreen extends StatefulWidget {
   final String role;
   const LoginScreen({super.key, required this.role});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+  bool _isLoginMode = true; // NOUVEAU : Interrupteur
+
+  // La fonction qui gère les deux cas
+  Future<void> _submit() async {
+    if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez remplir tous les champs')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      if (_isLoginMode) {
+        // CAS 1 : CONNEXION (Déjà un compte)
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+      } else {
+        // CAS 2 : INSCRIPTION (Nouveau compte)
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+      }
+      
+      // Si ça marche (connexion ou inscription), on va au tableau de bord
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => MainLayout(currentIndex: 0, role: widget.role)),
+        );
+      }
+    } catch (e) {
+      String message = "Une erreur est survenue";
+      if (e is FirebaseAuthException) {
+        if (e.code == 'user-not-found') message = 'Aucun compte trouvé pour cet email.';
+        else if (e.code == 'wrong-password') message = 'Mot de passe incorrect.';
+        else if (e.code == 'email-already-in-use') message = 'Cet email est déjà utilisé !';
+        else if (e.code == 'weak-password') message = 'Le mot de passe doit faire au moins 6 caractères.';
+        else message = e.message ?? "Erreur inconnue";
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: AppColors.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,25 +246,40 @@ class LoginScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Login", style: Theme.of(context).textTheme.headlineMedium),
+            // Le titre change selon le mode !
+            Text(_isLoginMode ? "Login" : "Inscription", style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 8),
-            Text("Login for: $role", style: const TextStyle(color: AppColors.textMuted)),
+            Text("Compte : ${widget.role}", style: const TextStyle(color: AppColors.textMuted)),
             const SizedBox(height: 32),
+            
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    const TextField(decoration: InputDecoration(labelText: "Email", hintText: "doctor@hospital.com", prefixIcon: Icon(Icons.email_outlined))),
+                    TextField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: "Email",
+                        hintText: "exemple@email.com",
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                    ),
                     const SizedBox(height: 16),
-                    const TextField(obscureText: true, decoration: InputDecoration(labelText: "Password", hintText: "••••••••", prefixIcon: Icon(Icons.lock_outline))),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: "Mot de passe",
+                        hintText: "••••••••",
+                        prefixIcon: Icon(Icons.lock_outline),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MainLayout(currentIndex: 0, role: role)));
-                        },
+                        onPressed: _isLoading ? null : _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -205,9 +288,24 @@ class LoginScreen extends StatelessWidget {
                           elevation: 4,
                           shadowColor: AppColors.primary.withOpacity(0.3),
                         ),
-                        child: const Text("Log In", style: TextStyle(fontWeight: FontWeight.w600)),
+                        child: _isLoading 
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : Text(_isLoginMode ? "Log In" : "Créer un compte", style: const TextStyle(fontWeight: FontWeight.w600)),
                       ),
-                    )
+                    ),
+
+                    // LE BOUTON MAGIQUE POUR CHANGER DE MODE
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _isLoginMode = !_isLoginMode; // Inverse l'interrupteur
+                        });
+                      },
+                      child: Text(
+                        _isLoginMode ? "Pas de compte ? Inscrivez-vous" : "Déjà un compte ? Connectez-vous",
+                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ],
                 ),
               ),
