@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // On essaie de lancer Firebase, mais on ignore l'erreur sur Windows
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    print("Firebase ignoré sur Windows : $e");
+  }
+  
   runApp(const SeniorCareApp());
 }
 
