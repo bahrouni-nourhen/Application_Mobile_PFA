@@ -25,6 +25,33 @@ class AppColors {
   static const Color border = Color(0xFFe2e8f0);
 }
 
+// ─── NOUVEAU : Modèle Utilisateur ───
+class AppUser {
+  final String uid;
+  final String fullName;
+  final String email;
+  final String phone;
+  final String role;
+
+  AppUser({
+    required this.uid,
+    required this.fullName,
+    required this.email,
+    required this.phone,
+    required this.role,
+  });
+
+  factory AppUser.fromMap(Map<String, dynamic> map) {
+    return AppUser(
+      uid: map['uid'] ?? '',
+      fullName: map['fullName'] ?? '',
+      email: map['email'] ?? '',
+      phone: map['phone'] ?? '',
+      role: map['role'] ?? '',
+    );
+  }
+}
+
 class Patient {
   final String name;
   final int age;
@@ -108,48 +135,20 @@ class RoleSelectionScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(FontAwesomeIcons.heartPulse,
-                  size: 64, color: AppColors.primary),
+              const Icon(FontAwesomeIcons.heartPulse, size: 64, color: AppColors.primary),
               const SizedBox(height: 16),
-              Text(
-                "SeniorCare",
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
+              Text("SeniorCare", style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text(
-                "Intelligent Health Surveillance",
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: AppColors.textMuted),
-              ),
+              Text("Intelligent Health Surveillance", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textMuted)),
               const SizedBox(height: 48),
-              _buildRoleCard(context, "Patient", "Monitor my health",
-                  FontAwesomeIcons.user, () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            const LoginScreen(role: 'Patient')));
+              _buildRoleCard(context, "Patient", "Monitor my health", FontAwesomeIcons.user, () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen(role: 'Patient')));
               }),
-              _buildRoleCard(context, "Family", "Check on loved ones",
-                  FontAwesomeIcons.houseUser, () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            const LoginScreen(role: 'Family')));
+              _buildRoleCard(context, "Family", "Check on loved ones", FontAwesomeIcons.houseUser, () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen(role: 'Family')));
               }),
-              _buildRoleCard(context, "Doctor", "Analyze patient data",
-                  FontAwesomeIcons.userDoctor, () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            const LoginScreen(role: 'Doctor')));
+              _buildRoleCard(context, "Doctor", "Analyze patient data", FontAwesomeIcons.userDoctor, () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen(role: 'Doctor')));
               }),
             ],
           ),
@@ -158,8 +157,7 @@ class RoleSelectionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRoleCard(BuildContext context, String title, String subtitle,
-      IconData icon, VoidCallback onTap) {
+  Widget _buildRoleCard(BuildContext context, String title, String subtitle, IconData icon, VoidCallback onTap) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -175,11 +173,8 @@ class RoleSelectionScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textMuted)),
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                   ],
                 ),
               ),
@@ -191,6 +186,7 @@ class RoleSelectionScreen extends StatelessWidget {
   }
 }
 
+// ─── MODIFIÉ : LoginScreen avec champs supplémentaires ───
 class LoginScreen extends StatefulWidget {
   final String role;
   const LoginScreen({super.key, required this.role});
@@ -202,51 +198,70 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   bool _isLoading = false;
   bool _isLoginMode = true;
 
   Future<void> _submit() async {
-    if (_emailController.text.trim().isEmpty ||
-        _passwordController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Veuillez remplir tous les champs')));
+    if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez remplir tous les champs')));
       return;
     }
+    // Validation supplémentaire en mode inscription
+    if (!_isLoginMode) {
+      if (_nameController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez entrer votre nom complet')));
+        return;
+      }
+      if (_phoneController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez entrer votre numéro de téléphone')));
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
     try {
+      UserCredential userCredential;
       if (_isLoginMode) {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim());
+        userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
       } else {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim());
+        userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+
+        // ─── NOUVEAU : Sauvegarder les infos dans Firestore ───
+        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+          'uid': userCredential.user!.uid,
+          'fullName': _nameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'phone': _phoneController.text.trim(),
+          'role': widget.role,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
       }
+
       if (mounted) {
         Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-                builder: (_) => MainLayout(
-                    currentIndex: 0, role: widget.role)));
+          context,
+          MaterialPageRoute(builder: (_) => MainLayout(currentIndex: 0, role: widget.role)),
+        );
       }
     } catch (e) {
       String message = "Une erreur est survenue";
       if (e is FirebaseAuthException) {
-        if (e.code == 'user-not-found')
-          message = 'Aucun compte trouvé.';
-        else if (e.code == 'wrong-password')
-          message = 'Mot de passe incorrect.';
-        else if (e.code == 'email-already-in-use')
-          message = 'Cet email est déjà utilisé !';
-        else if (e.code == 'weak-password')
-          message = 'Mot de passe trop court (min 6).';
-        else
-          message = e.message ?? "Erreur";
+        if (e.code == 'user-not-found') message = 'Aucun compte trouvé.';
+        else if (e.code == 'wrong-password') message = 'Mot de passe incorrect.';
+        else if (e.code == 'email-already-in-use') message = 'Cet email est déjà utilisé !';
+        else if (e.code == 'weak-password') message = 'Mot de passe trop court (min 6).';
+        else message = e.message ?? "Erreur";
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message), backgroundColor: AppColors.danger));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppColors.danger));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -257,6 +272,8 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -276,19 +293,49 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              _isLoginMode ? "Login" : "Inscription",
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            Text(_isLoginMode ? "Login" : "Inscription", style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 8),
-            Text("Compte : ${widget.role}",
-                style: const TextStyle(color: AppColors.textMuted)),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        widget.role == 'Doctor' ? FontAwesomeIcons.userDoctor : widget.role == 'Family' ? FontAwesomeIcons.houseUser : FontAwesomeIcons.user,
+                        size: 14,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(widget.role, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 32),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
+                    // ─── NOUVEAU : Champs Nom complet (inscription seule) ───
+                    if (!_isLoginMode) ...[
+                      TextField(
+                        controller: _nameController,
+                        decoration: const InputDecoration(
+                          labelText: "Nom complet",
+                          hintText: "Dr. Martin Dupont",
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     TextField(
                       controller: _emailController,
                       decoration: const InputDecoration(
@@ -307,6 +354,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         prefixIcon: Icon(Icons.lock_outline),
                       ),
                     ),
+                    // ─── NOUVEAU : Champ Téléphone (inscription seule) ───
+                    if (!_isLoginMode) ...[
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: "Téléphone",
+                          hintText: "+33 6 12 34 56 78",
+                          prefixIcon: Icon(Icons.phone_outlined),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
@@ -316,15 +376,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           elevation: 4,
                           shadowColor: AppColors.primary.withOpacity(0.3),
                         ),
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
                             : Text(
-                                _isLoginMode ? "Log In" : "Créer un compte",
+                                _isLoginMode ? "Log In" : "Créer mon compte",
                                 style: const TextStyle(fontWeight: FontWeight.w600),
                               ),
                       ),
@@ -336,11 +395,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         });
                       },
                       child: Text(
-                        _isLoginMode
-                            ? "Pas de compte ? Inscrivez-vous"
-                            : "Déjà un compte ? Connectez-vous",
-                        style: const TextStyle(
-                            color: AppColors.primary, fontWeight: FontWeight.bold),
+                        _isLoginMode ? "Pas de compte ? Inscrivez-vous" : "Déjà un compte ? Connectez-vous",
+                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -406,14 +462,9 @@ class _MainLayoutState extends State<MainLayout> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon,
-              color: isActive ? AppColors.primary : AppColors.textMuted,
-              size: 24),
+          Icon(icon, color: isActive ? AppColors.primary : AppColors.textMuted, size: 24),
           const SizedBox(height: 4),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 12,
-                  color: isActive ? AppColors.primary : AppColors.textMuted)),
+          Text(label, style: TextStyle(fontSize: 12, color: isActive ? AppColors.primary : AppColors.textMuted)),
         ],
       ),
     );
@@ -442,24 +493,12 @@ class PatientDashboard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Hello, Mr. Dupont",
-                    style: Theme.of(context).textTheme.headlineSmall),
+                Text("Hello, Mr. Dupont", style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    "System Active",
-                    style: TextStyle(
-                      color: Color(0xFF166534),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: AppColors.success.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                  child: const Text("System Active", style: TextStyle(color: Color(0xFF166534), fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -478,24 +517,14 @@ class PatientDashboard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: AppColors.danger,
                         borderRadius: BorderRadius.circular(70),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.danger.withOpacity(0.4),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
+                        boxShadow: [BoxShadow(color: AppColors.danger.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 10))],
                       ),
                       child: const Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(FontAwesomeIcons.bell,
-                              size: 32, color: Colors.white),
+                          Icon(FontAwesomeIcons.bell, size: 32, color: Colors.white),
                           SizedBox(height: 8),
-                          Text("SOS",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold)),
+                          Text("SOS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
@@ -507,20 +536,11 @@ class PatientDashboard extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text("Heart Rate",
-                              style: TextStyle(color: AppColors.textMuted)),
+                          const Text("Heart Rate", style: TextStyle(color: AppColors.textMuted)),
                           RichText(
                             text: const TextSpan(children: [
-                              TextSpan(
-                                  text: "72 ",
-                                  style: TextStyle(
-                                      color: AppColors.primary,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold)),
-                              TextSpan(
-                                  text: "bpm",
-                                  style: TextStyle(
-                                      color: AppColors.textMuted, fontSize: 14)),
+                              TextSpan(text: "72 ", style: TextStyle(color: AppColors.primary, fontSize: 24, fontWeight: FontWeight.bold)),
+                              TextSpan(text: "bpm", style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
                             ]),
                           ),
                         ],
@@ -533,10 +553,8 @@ class PatientDashboard extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: const [
-                          Text("Movement",
-                              style: TextStyle(color: AppColors.textMuted)),
-                          Text("Normal",
-                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text("Movement", style: TextStyle(color: AppColors.textMuted)),
+                          Text("Normal", style: TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
@@ -563,8 +581,7 @@ class FamilyDashboard extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             color: Colors.white,
-            child: Text("Family Dashboard",
-                style: Theme.of(context).textTheme.headlineSmall),
+            child: Text("Family Dashboard", style: Theme.of(context).textTheme.headlineSmall),
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -573,28 +590,15 @@ class FamilyDashboard extends StatelessWidget {
                 children: [
                   Card(
                     color: AppColors.success.withOpacity(0.05),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(color: AppColors.success, width: 1),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppColors.success, width: 1)),
                     child: const Padding(
                       padding: EdgeInsets.all(16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            "Everything is Fine",
-                            style: TextStyle(
-                              color: AppColors.success,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                            ),
-                          ),
+                          Text("Everything is Fine", style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 18)),
                           SizedBox(height: 8),
-                          Text(
-                            "No anomalies detected today.",
-                            style: TextStyle(color: AppColors.textMuted),
-                          ),
+                          Text("No anomalies detected today.", style: TextStyle(color: AppColors.textMuted)),
                         ],
                       ),
                     ),
@@ -605,37 +609,17 @@ class FamilyDashboard extends StatelessWidget {
                       children: [
                         const Padding(
                           padding: EdgeInsets.all(12.0),
-                          child: Text(
-                            "LIVE FEED",
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
+                          child: Text("LIVE FEED", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
                         ),
                         Container(
                           height: 150,
                           margin: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.black,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Center(
-                            child: Icon(FontAwesomeIcons.video,
-                                size: 32, color: Colors.white),
-                          ),
+                          decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)),
+                          child: const Center(child: Icon(FontAwesomeIcons.video, size: 32, color: Colors.white)),
                         ),
                         const Padding(
                           padding: EdgeInsets.all(12.0),
-                          child: Text(
-                            "Living Room • Camera 1",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textMuted,
-                            ),
-                          ),
+                          child: Text("Living Room • Camera 1", textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                         ),
                       ],
                     ),
@@ -650,6 +634,7 @@ class FamilyDashboard extends StatelessWidget {
   }
 }
 
+// ─── MODIFIÉ : DoctorDashboard avec infos réelles depuis Firestore ───
 class DoctorDashboard extends StatefulWidget {
   const DoctorDashboard({super.key});
 
@@ -659,6 +644,27 @@ class DoctorDashboard extends StatefulWidget {
 
 class _DoctorDashboardState extends State<DoctorDashboard> {
   String selectedFilter = "All Patients";
+  AppUser? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  // ─── NOUVEAU : Charger les infos du docteur ───
+  void _loadCurrentUser() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      FirebaseFirestore.instance.collection('users').doc(uid).snapshots().listen((doc) {
+        if (doc.exists && mounted) {
+          setState(() {
+            _currentUser = AppUser.fromMap(doc.data()!);
+          });
+        }
+      });
+    }
+  }
 
   void _showAddPatientDialog(BuildContext context) {
     final TextEditingController nameCtrl = TextEditingController();
@@ -675,63 +681,41 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: "Nom complet"),
-                  ),
+                  TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Nom complet")),
                   const SizedBox(height: 10),
-                  TextField(
-                    controller: ageCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: "Âge"),
-                  ),
+                  TextField(controller: ageCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Âge")),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     value: selectedStatus,
                     items: const [
-                      DropdownMenuItem(
-                          value: "stable", child: Text("Stable")),
-                      DropdownMenuItem(
-                          value: "warning", child: Text("Review")),
-                      DropdownMenuItem(
-                          value: "critical", child: Text("Critical")),
+                      DropdownMenuItem(value: "stable", child: Text("Stable")),
+                      DropdownMenuItem(value: "warning", child: Text("Review")),
+                      DropdownMenuItem(value: "critical", child: Text("Critical")),
                     ],
-                    onChanged: (value) =>
-                        setState(() => selectedStatus = value!),
-                    decoration:
-                        const InputDecoration(labelText: "Statut"),
+                    onChanged: (value) => setState(() => selectedStatus = value!),
+                    decoration: const InputDecoration(labelText: "Statut"),
                   ),
                 ],
               ),
             ),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text("Annuler"),
-              ),
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("Annuler")),
               ElevatedButton(
                 onPressed: () async {
-                  if (nameCtrl.text.trim().isEmpty ||
-                      ageCtrl.text.trim().isEmpty) return;
-                  await FirebaseFirestore.instance
-                      .collection('patients')
-                      .add({
+                  if (nameCtrl.text.trim().isEmpty || ageCtrl.text.trim().isEmpty) return;
+                  await FirebaseFirestore.instance.collection('patients').add({
                     'name': nameCtrl.text.trim(),
                     'age': int.tryParse(ageCtrl.text.trim()) ?? 0,
                     'gender': 'Male',
                     'id': '#${DateTime.now().millisecondsSinceEpoch}',
                     'status': selectedStatus,
                     'timeAgo': 'Maintenant',
-                    'alertMsg': selectedStatus == 'critical'
-                        ? 'Nécessite une attention'
-                        : null,
+                    'alertMsg': selectedStatus == 'critical' ? 'Nécessite une attention' : null,
                   });
                   if (dialogContext.mounted) Navigator.pop(dialogContext);
                 },
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary),
-                child: const Text("Enregistrer",
-                    style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                child: const Text("Enregistrer", style: TextStyle(color: Colors.white)),
               ),
             ],
           );
@@ -754,50 +738,42 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // ─── MODIFIÉ : Afficher le vrai nom du docteur ───
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Bienvenue,",
-                            style: TextStyle(
-                                fontSize: 12, color: AppColors.textMuted)),
+                        const Text("Bienvenue,", style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
                         Text(
-                          FirebaseAuth.instance.currentUser?.email ?? "Docteur",
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                          _currentUser?.fullName ?? "Docteur",
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                         ),
+                        if (_currentUser?.phone != null && _currentUser!.phone.isNotEmpty)
+                          Row(
+                            children: [
+                              const Icon(Icons.phone, size: 12, color: AppColors.textMuted),
+                              const SizedBox(width: 4),
+                              Text(_currentUser!.phone, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                            ],
+                          ),
                       ],
                     ),
                     Container(
                       width: 40,
                       height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Icon(FontAwesomeIcons.userDoctor,
-                          color: AppColors.primaryDark),
+                      decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(20)),
+                      child: const Icon(FontAwesomeIcons.userDoctor, color: AppColors.primaryDark),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
                   child: const Row(
                     children: [
-                      Icon(FontAwesomeIcons.magnifyingGlass,
-                          color: AppColors.textMuted, size: 18),
+                      Icon(FontAwesomeIcons.magnifyingGlass, color: AppColors.textMuted, size: 18),
                       SizedBox(width: 10),
-                      Text("Search patients...",
-                          style: TextStyle(
-                              color: AppColors.textMuted, fontSize: 14)),
+                      Text("Search patients...", style: TextStyle(color: AppColors.textMuted, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -829,34 +805,15 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('patients')
-                  .snapshots(),
+              stream: FirebaseFirestore.instance.collection('patients').snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return const Center(
-                    child: Text("Erreur",
-                        style: TextStyle(color: AppColors.danger)),
-                  );
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text("Aucun patient enregistré.",
-                        style: TextStyle(color: AppColors.textMuted)),
-                  );
-                }
-                final patients = snapshot.data!.docs
-                    .map((doc) =>
-                        Patient.fromMap(doc.data() as Map<String, dynamic>))
-                    .toList();
+                if (snapshot.hasError) return const Center(child: Text("Erreur", style: TextStyle(color: AppColors.danger)));
+                if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("Aucun patient enregistré.", style: TextStyle(color: AppColors.textMuted)));
+                final patients = snapshot.data!.docs.map((doc) => Patient.fromMap(doc.data() as Map<String, dynamic>)).toList();
                 return ListView(
                   padding: const EdgeInsets.all(16),
-                  children: patients
-                      .map((patient) => _buildPatientCard(context, patient))
-                      .toList(),
+                  children: patients.map((patient) => _buildPatientCard(context, patient)).toList(),
                 );
               },
             ),
@@ -874,19 +831,12 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         label: Text(label, style: const TextStyle(fontSize: 12)),
         selected: isActive,
         onSelected: (bool selected) {
-          setState(() {
-            selectedFilter = label;
-          });
+          setState(() { selectedFilter = label; });
         },
         backgroundColor: Colors.white,
         selectedColor: AppColors.primary,
-        labelStyle: TextStyle(
-            color: isActive ? Colors.white : AppColors.textMuted),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-              color: isActive ? AppColors.primary : AppColors.border),
-        ),
+        labelStyle: TextStyle(color: isActive ? Colors.white : AppColors.textMuted),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isActive ? AppColors.primary : AppColors.border)),
       ),
     );
   }
@@ -912,11 +862,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) =>
-                      PatientDetailScreen(patient: patient)));
+          Navigator.push(context, MaterialPageRoute(builder: (_) => PatientDetailScreen(patient: patient)));
         },
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -925,21 +871,11 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(patient.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(patient.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: badgeColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(badgeText,
-                        style: TextStyle(
-                          color: badgeColor.withOpacity(0.8),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        )),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: badgeColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                    child: Text(badgeText, style: TextStyle(color: badgeColor.withOpacity(0.8), fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -947,19 +883,12 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "${patient.age} years • ${patient.gender}",
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textMuted),
-                  ),
+                  Text("${patient.age} years • ${patient.gender}", style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                   Row(
                     children: [
-                      const Icon(FontAwesomeIcons.clock,
-                          size: 10, color: AppColors.textMuted),
+                      const Icon(FontAwesomeIcons.clock, size: 10, color: AppColors.textMuted),
                       const SizedBox(width: 4),
-                      Text(patient.timeAgo,
-                          style: const TextStyle(
-                              fontSize: 12, color: AppColors.textMuted)),
+                      Text(patient.timeAgo, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
                     ],
                   ),
                 ],
@@ -968,26 +897,13 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7ED),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+                  decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(4)),
                   child: Row(
                     children: [
-                      const Icon(
-                        FontAwesomeIcons.triangleExclamation,
-                        color: Color(0xFF92400E),
-                        size: 12,
-                      ),
+                      const Icon(FontAwesomeIcons.triangleExclamation, color: Color(0xFF92400E), size: 12),
                       const SizedBox(width: 6),
                       Expanded(
-                        child: Text(
-                          patient.alertMsg!,
-                          style: const TextStyle(
-                            color: Color(0xFF92400E),
-                            fontSize: 11,
-                          ),
-                        ),
+                        child: Text(patient.alertMsg!, style: const TextStyle(color: Color(0xFF92400E), fontSize: 11)),
                       ),
                     ],
                   ),
@@ -1010,18 +926,9 @@ class PatientDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primary),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          "Back",
-          style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
-        ),
-        actions: const [
-          Icon(Icons.more_vert, color: AppColors.textMuted),
-          SizedBox(width: 8),
-        ],
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: AppColors.primary), onPressed: () => Navigator.pop(context)),
+        title: const Text("Back", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+        actions: const [Icon(Icons.more_vert, color: AppColors.textMuted), SizedBox(width: 8)],
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -1033,29 +940,13 @@ class PatientDetailScreen extends StatelessWidget {
               child: Column(
                 children: [
                   Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: AppColors.primaryLight, width: 3),
-                    ),
-                    child: const CircleAvatar(
-                      radius: 40,
-                      backgroundImage:
-                          NetworkImage('https://picsum.photos/seed/grandpa/80/80'),
-                    ),
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.primaryLight, width: 3)),
+                    child: const CircleAvatar(radius: 40, backgroundImage: NetworkImage('https://picsum.photos/seed/grandpa/80/80')),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    patient.name,
-                    style: const TextStyle(
-                        fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+                  Text(patient.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text(
-                    "ID: ${patient.id} • Room 204",
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 12),
-                  ),
+                  Text("ID: ${patient.id} • Room 204", style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   const SizedBox(height: 8),
                   _buildStatusBadge(patient.status),
                 ],
@@ -1067,14 +958,7 @@ class PatientDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "REAL-TIME VITALS",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
+                  const Text("REAL-TIME VITALS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
                   const SizedBox(height: 8),
                   GridView.count(
                     shrinkWrap: true,
@@ -1090,91 +974,35 @@ class PatientDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    "DEEP LEARNING ANALYSIS",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
+                  const Text("DEEP LEARNING ANALYSIS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
                   const SizedBox(height: 8),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: Column(
-                        children: [
-                          const _AIItem(
-                            icon: FontAwesomeIcons.personWalking,
-                            title: "Gait Analysis",
-                            desc: "Detected irregular walking pattern.",
-                          ),
-                          const Divider(height: 24),
-                          const _AIItem(
-                            icon: FontAwesomeIcons.bed,
-                            title: "Sleep Quality",
-                            desc: "Poor sleep duration (4h 20m).",
-                          ),
+                        children: const [
+                          _AIItem(icon: FontAwesomeIcons.personWalking, title: "Gait Analysis", desc: "Detected irregular walking pattern."),
+                          Divider(height: 24),
+                          _AIItem(icon: FontAwesomeIcons.bed, title: "Sleep Quality", desc: "Poor sleep duration (4h 20m)."),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    "PRESCRIPTIONS",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
+                  const Text("PRESCRIPTIONS", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
                   const SizedBox(height: 8),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: Column(
                         children: [
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text("Amlodipine",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14)),
-                              Text("5mg",
-                                  style: TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontSize: 12)),
-                            ],
-                          ),
+                          const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("Amlodipine", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)), Text("5mg", style: TextStyle(color: AppColors.textMuted, fontSize: 12))]),
                           const SizedBox(height: 4),
-                          const Text(
-                            "Take 1 tablet daily with breakfast.",
-                            style: TextStyle(
-                                color: AppColors.textMuted, fontSize: 12),
-                          ),
+                          const Text("Take 1 tablet daily with breakfast.", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                           const Divider(height: 24),
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text("Metformin",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14)),
-                              Text("500mg",
-                                  style: TextStyle(
-                                      color: AppColors.textMuted,
-                                      fontSize: 12)),
-                            ],
-                          ),
+                          const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("Metformin", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)), Text("500mg", style: TextStyle(color: AppColors.textMuted, fontSize: 12))]),
                           const SizedBox(height: 4),
-                          const Text(
-                            "Take 1 tablet after dinner.",
-                            style: TextStyle(
-                                color: AppColors.textMuted, fontSize: 12),
-                          ),
+                          const Text("Take 1 tablet after dinner.", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                         ],
                       ),
                     ),
@@ -1186,27 +1014,16 @@ class PatientDetailScreen extends StatelessWidget {
                         child: ElevatedButton.icon(
                           icon: const Icon(FontAwesomeIcons.phone, size: 16),
                           label: const Text("Call Family"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
-                          ),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                           onPressed: () {},
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
-                          icon: const Icon(
-                              FontAwesomeIcons.commentMedical, size: 16),
+                          icon: const Icon(FontAwesomeIcons.commentMedical, size: 16),
                           label: const Text("Message"),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            side: const BorderSide(color: AppColors.primary),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
-                          ),
+                          style: OutlinedButton.styleFrom(foregroundColor: AppColors.primary, side: const BorderSide(color: AppColors.primary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
                           onPressed: () {},
                         ),
                       ),
@@ -1241,11 +1058,8 @@ class PatientDetailScreen extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(text,
-          style: TextStyle(
-              color: fg, fontSize: 10, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      child: Text(text, style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 }
@@ -1259,26 +1073,13 @@ class _VitalBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFf8fafc),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFf8fafc), borderRadius: BorderRadius.circular(12)),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.primaryDark,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text(value, style: const TextStyle(color: AppColors.primaryDark, fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-          ),
+          Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
         ],
       ),
     );
@@ -1298,10 +1099,7 @@ class _AIItem extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.primaryLight,
-            borderRadius: BorderRadius.circular(6),
-          ),
+          decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(6)),
           child: Icon(icon, color: AppColors.primaryDark, size: 16),
         ),
         const SizedBox(width: 10),
@@ -1309,13 +1107,9 @@ class _AIItem extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14)),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 2),
-              Text(desc,
-                  style: const TextStyle(
-                      color: AppColors.textMuted, fontSize: 12)),
+              Text(desc, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
             ],
           ),
         ),
@@ -1324,8 +1118,35 @@ class _AIItem extends StatelessWidget {
   }
 }
 
-class SettingsScreen extends StatelessWidget {
+// ─── MODIFIÉ : SettingsScreen avec infos du profil ───
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  AppUser? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  void _loadCurrentUser() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      FirebaseFirestore.instance.collection('users').doc(uid).get().then((doc) {
+        if (doc.exists && mounted) {
+          setState(() {
+            _currentUser = AppUser.fromMap(doc.data()!);
+          });
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1336,26 +1157,87 @@ class SettingsScreen extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             color: Colors.white,
-            child: Text("Settings",
-                style: Theme.of(context).textTheme.headlineSmall),
+            child: Text("Settings", style: Theme.of(context).textTheme.headlineSmall),
           ),
+          // ─── NOUVEAU : Carte profil en haut ───
+          if (_currentUser != null)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        child: Icon(
+                          _currentUser!.role == 'Doctor'
+                              ? FontAwesomeIcons.userDoctor
+                              : _currentUser!.role == 'Family'
+                                  ? FontAwesomeIcons.houseUser
+                                  : FontAwesomeIcons.user,
+                          color: AppColors.primaryDark,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_currentUser!.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            const SizedBox(height: 4),
+                            Text(_currentUser!.email, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                                  child: Text(_currentUser!.role, style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(_currentUser!.phone, style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
                 Card(
                   child: ListTile(
+                    leading: const Icon(Icons.notifications_outlined, color: AppColors.primary),
                     title: const Text("Notifications"),
-                    trailing: const Icon(Icons.chevron_right,
-                        color: AppColors.textMuted),
+                    trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
                     onTap: () {},
                   ),
                 ),
                 Card(
                   child: ListTile(
+                    leading: const Icon(Icons.security_outlined, color: AppColors.primary),
                     title: const Text("Account Security"),
-                    trailing: const Icon(Icons.chevron_right,
-                        color: AppColors.textMuted),
+                    trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                    onTap: () {},
+                  ),
+                ),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                    title: const Text("Edit Profile"),
+                    trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
                     onTap: () {},
                   ),
                 ),
@@ -1364,20 +1246,14 @@ class SettingsScreen extends StatelessWidget {
                   width: double.infinity,
                   child: OutlinedButton(
                     onPressed: () {
-                      Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  const RoleSelectionScreen()),
-                          (route) => false);
+                      FirebaseAuth.instance.signOut();
+                      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const RoleSelectionScreen()), (route) => false);
                     },
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.danger),
-                      foregroundColor: AppColors.danger,
-                    ),
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: AppColors.danger), foregroundColor: AppColors.danger),
                     child: const Text("Log Out"),
                   ),
                 ),
+                const SizedBox(height: 32),
               ],
             ),
           ),
