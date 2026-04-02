@@ -76,6 +76,7 @@ class Patient {
   final String timeAgo;
   final String? alertMsg;
   final String familyPhone; // NOUVEAU
+  final String ownerUid;
 
   Patient({
     required this.name,
@@ -85,7 +86,8 @@ class Patient {
     required this.status,
     required this.timeAgo,
     this.alertMsg,
-    this.familyPhone = '', // NOUVEAU
+    this.familyPhone = '',
+    this.ownerUid = '', // NOUVEAU
   });
 
   factory Patient.fromMap(Map<String, dynamic> map) {
@@ -97,7 +99,8 @@ class Patient {
       status: map['status'] ?? 'stable',
       timeAgo: map['timeAgo'] ?? '',
       alertMsg: map['alertMsg'],
-      familyPhone: map['familyPhone'] ?? '', // NOUVEAU
+      familyPhone: map['familyPhone'] ?? '',
+      ownerUid: map['ownerUid'] ?? '', // NOUVEAU
     );
   }
 
@@ -110,7 +113,8 @@ class Patient {
       'status': status,
       'timeAgo': timeAgo,
       'alertMsg': alertMsg,
-      'familyPhone': familyPhone, // NOUVEAU
+      'familyPhone': familyPhone,
+      'ownerUid': ownerUid, // NOUVEAU
     };
   }
 }
@@ -344,16 +348,40 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isLogin = true;
   bool _obscurePassword = true;
+  
+  // NOUVEAU : Variable pour stocker l'indicatif sélectionné
+  String _selectedDialCode = '+216';
 
   Future<void> _submit() async {
     if (_emailCtrl.text.trim().isEmpty || _passwordCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez remplir tous les champs'), behavior: SnackBarBehavior.floating));
       return;
     }
-    if (!_isLogin && (_nameCtrl.text.trim().isEmpty || _phoneCtrl.text.trim().isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez remplir tous les champs'), behavior: SnackBarBehavior.floating));
+
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailRegex.hasMatch(_emailCtrl.text.trim())) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Format d'email invalide (ex: nom@email.com)"), backgroundColor: AppColors.danger, behavior: SnackBarBehavior.floating));
       return;
     }
+
+    if (!_isLogin) {
+      if (_nameCtrl.text.trim().isEmpty || _phoneCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Veuillez remplir tous les champs'), behavior: SnackBarBehavior.floating));
+        return;
+      }
+
+      // NOUVEAU : Vérifie que le numéro contient bien au moins 6 chiffres (standard international)
+      final phoneRegex = RegExp(r'^[0-9]{6,10}$');
+      if (!phoneRegex.hasMatch(_phoneCtrl.text.trim())) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Numéro invalide ! Entrez entre 6 et 10 chiffres."),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ));
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
     try {
       UserCredential cred;
@@ -361,9 +389,17 @@ class _LoginScreenState extends State<LoginScreen> {
         cred = await FirebaseAuth.instance.signInWithEmailAndPassword(email: _emailCtrl.text.trim(), password: _passwordCtrl.text.trim());
       } else {
         cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: _emailCtrl.text.trim(), password: _passwordCtrl.text.trim());
+        
+        // NOUVEAU : Concatène l'indicatif choisi + le numéro tapé
+        final fullPhone = "$_selectedDialCode${_phoneCtrl.text.trim()}";
+        
         await FirebaseFirestore.instance.collection('users').doc(cred.user!.uid).set({
-          'uid': cred.user!.uid, 'fullName': _nameCtrl.text.trim(), 'email': _emailCtrl.text.trim(),
-          'phone': _phoneCtrl.text.trim(), 'role': widget.role, 'createdAt': FieldValue.serverTimestamp(),
+          'uid': cred.user!.uid, 
+          'fullName': _nameCtrl.text.trim(), 
+          'email': _emailCtrl.text.trim(),
+          'phone': fullPhone, // Sauvegarde ex: "+33612345678"
+          'role': widget.role, 
+          'createdAt': FieldValue.serverTimestamp(),
         });
       }
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => MainLayout(currentIndex: 0, role: widget.role)));
@@ -383,12 +419,19 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
-  void dispose() { _emailCtrl.dispose(); _passwordCtrl.dispose(); _nameCtrl.dispose(); _phoneCtrl.dispose(); super.dispose(); }
+  void dispose() { 
+    _emailCtrl.dispose(); 
+    _passwordCtrl.dispose(); 
+    _nameCtrl.dispose(); 
+    _phoneCtrl.dispose(); 
+    super.dispose(); 
+  }
 
   @override
   Widget build(BuildContext context) {
     final roleIcon = widget.role == 'Doctor' ? FontAwesomeIcons.userDoctor : widget.role == 'Family' ? FontAwesomeIcons.houseUser : FontAwesomeIcons.user;
     final roleColor = widget.role == 'Doctor' ? AppColors.warning : widget.role == 'Family' ? AppColors.success : AppColors.primary;
+    
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(gradient: AppGradients.subtle),
@@ -424,7 +467,65 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     if (!_isLogin) ...[
                       const SizedBox(height: 14),
-                      TextField(controller: _phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "Téléphone", prefixIcon: Icon(Icons.phone_outlined))),
+                      // NOUVEAU : Design Pro avec Dropdown pour le pays
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text("Téléphone", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textMuted)),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          // Menu déroulant pour l'indicatif
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: AppColors.bgBody,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                                                           child: DropdownButton<String>(
+                                value: _selectedDialCode,
+                                icon: const Icon(Icons.arrow_drop_down, color: AppColors.textMuted, size: 20),
+                                // NOUVEAU : Liste de 15 pays pertinents
+                                items: const [
+                                  DropdownMenuItem(value: '+216', child: Text('🇹🇳 TN +216', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+213', child: Text('🇩🇿 DZ +213', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+212', child: Text('🇲🇦 MA +212', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+218', child: Text('🇱🇾 LY +218', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+20', child: Text('🇪🇬 EG +20', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+33', child: Text('🇫🇷 FR +33', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+49', child: Text('🇩🇪 DE +49', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+39', child: Text('🇮🇹 IT +39', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+34', child: Text('🇪🇸 ES +34', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+44', child: Text('🇬🇧 UK +44', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+966', child: Text('🇸🇦 SA +966', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+971', child: Text('🇦🇪 AE +971', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+90', child: Text('🇹🇷 TR +90', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  DropdownMenuItem(value: '+1', child: Text('🇺🇸 US +1', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                ],
+                                onChanged: (value) => setState(() => _selectedDialCode = value!),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          // Champ pour le reste du numéro
+                          Expanded(
+                            child: TextField(
+                              controller: _phoneCtrl,
+                              keyboardType: TextInputType.number,
+                              maxLength: 9,
+                              decoration: InputDecoration(
+                                hintText: "XX XXX XXX",
+                                counterText: "",
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
+                                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                     const SizedBox(height: 28),
                     SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _isLoading ? null : _submit, child: _isLoading ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)) : Text(_isLogin ? "Se connecter" : "Créer mon compte"))),
@@ -440,7 +541,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
 // ═══════════════════════════════════════════
 //               LAYOUT PRINCIPAL
 // ═══════════════════════════════════════════
@@ -767,6 +867,7 @@ class FamilyDashboard extends StatelessWidget {
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(20), boxShadow: [AppShadows.dangerShadow]),
                       child: Row(
+                        
                         children: [
                           const Icon(FontAwesomeIcons.triangleExclamation, color: Colors.white, size: 28),
                           const SizedBox(width: 16),
@@ -908,11 +1009,14 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Annuler")),
-            ElevatedButton(
+                        ElevatedButton(
               onPressed: () async {
                 if (nameCtrl.text.trim().isEmpty || ageCtrl.text.trim().isEmpty) return;
-                // On utilise l'ID du document comme ID patient pour lier aux médicaments
-                final docRef = await FirebaseFirestore.instance.collection('patients').add({
+                
+                // Récupère l'ID du médecin connecté
+                final currentDoctorId = FirebaseAuth.instance.currentUser?.uid; 
+                
+                await FirebaseFirestore.instance.collection('patients').add({
                   'name': nameCtrl.text.trim(),
                   'age': int.tryParse(ageCtrl.text.trim()) ?? 0,
                   'gender': 'Homme',
@@ -920,7 +1024,8 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                   'status': status,
                   'timeAgo': 'Maintenant',
                   'alertMsg': status == 'critical' ? 'Nécessite une attention immédiate' : null,
-                  'familyPhone': familyPhoneCtrl.text.trim(), // NOUVEAU
+                  'familyPhone': familyPhoneCtrl.text.trim(),
+                  'ownerUid': currentDoctorId, // NOUVEAU : On lie le patient au médecin
                 });
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -990,9 +1095,13 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
               ),
             ),
             const SizedBox(height: 8),
-            Expanded(
+             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('patients').snapshots(),
+                // CORRIGÉ : On ne récupère QUE les patients du médecin connecté
+                stream: FirebaseFirestore.instance
+                    .collection('patients')
+                    .where('ownerUid', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                    .snapshots(),
                 builder: (context, snap) {
                   if (snap.hasError) return const Center(child: Text("Erreur de chargement"));
                   if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
